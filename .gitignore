@@ -12,6 +12,12 @@ phase1/app/backend/target/
 phase1/app/backend/src/main/resources/application.properties
 phase1/app/backend/src/main/resources/application-*.properties
 
+# Environment Variables
+.env
+phase1/scripts/.env
+phase2/scripts/.env
+phase3/scripts/.env
+
 # Secrets
 *.pem
 *.key

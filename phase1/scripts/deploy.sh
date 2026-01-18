@@ -32,10 +32,35 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# ============================================
+# LOAD ENVIRONMENT VARIABLES FROM .env
+# ============================================
+
+ENV_FILE="$SCRIPT_DIR/.env"
+
+if [ -f "$ENV_FILE" ]; then
+    echo "📄 Loading environment variables from .env..."
+    # Export variables from .env file
+    set -a
+    source "$ENV_FILE"
+    set +a
+    echo -e "${GREEN}✓ Environment variables loaded${NC}"
+else
+    echo -e "${YELLOW}⚠ Warning: .env file not found at $ENV_FILE${NC}"
+    echo "   Please create .env file from .env.example:"
+    echo "   cp $SCRIPT_DIR/.env.example $SCRIPT_DIR/.env"
+    echo ""
+    read -p "Do you want to continue with default values? (y/n): " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        exit 1
+    fi
+fi
+
 # Database Configuration (read from environment or use defaults)
 DB_NAME="${DB_NAME:-notes_app_db}"
 DB_USER="${DB_USER:-postgres}"
-DB_PASSWORD="${DB_PASSWORD:-postgres123}"
+DB_PASSWORD="${DB_PASSWORD:-changeme}"
 
 echo "⚙️  Configuration:"
 echo "   Database: $DB_NAME"
