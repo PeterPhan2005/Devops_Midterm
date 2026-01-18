@@ -1,0 +1,114 @@
+# ==================================
+# BACKEND (Spring Boot)
+# ==================================
+
+# Maven Build
+phase1/app/backend/target/
+!phase1/app/backend/.mvn/wrapper/maven-wrapper.jar
+!phase1/app/backend/**/src/main/**/target/
+!phase1/app/backend/**/src/test/**/target/
+
+# Application Configuration (sensitive data)
+phase1/app/backend/src/main/resources/application.properties
+phase1/app/backend/src/main/resources/application-*.properties
+
+# Environment Variables
+.env
+phase1/scripts/.env
+phase2/scripts/.env
+phase3/scripts/.env
+
+# Secrets
+*.pem
+*.key
+*.cert
+secrets/
+
+# IDE - Spring Tool Suite
+phase1/app/backend/.apt_generated
+phase1/app/backend/.classpath
+phase1/app/backend/.factorypath
+phase1/app/backend/.project
+phase1/app/backend/.settings
+phase1/app/backend/.springBeans
+phase1/app/backend/.sts4-cache
+
+# IDE - IntelliJ IDEA
+phase1/app/backend/.idea
+phase1/app/backend/*.iws
+phase1/app/backend/*.iml
+phase1/app/backend/*.ipr
+
+# IDE - NetBeans
+phase1/app/backend/nbproject/private/
+phase1/app/backend/nbbuild/
+phase1/app/backend/dist/
+phase1/app/backend/nbdist/
+phase1/app/backend/.nb-gradle/
+phase1/app/backend/build/
+!phase1/app/backend/**/src/main/**/build/
+!phase1/app/backend/**/src/test/**/build/
+
+# IDE - VS Code
+phase1/app/backend/.vscode/
+
+# Java compiled files
+*.class
+
+# Log files
+*.log
+
+# Runtime logs from deploy.sh
+phase1/backend.log
+phase1/frontend.log
+phase1/logs/
+
+# Package Files
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# JVM crash logs
+hs_err_pid*
+replay_pid*
+
+# ==================================
+# FRONTEND (React)
+# ==================================
+
+# Dependencies
+phase1/app/frontend/node_modules/
+phase1/app/frontend/.pnp
+phase1/app/frontend/.pnp.js
+
+# Testing
+phase1/app/frontend/coverage/
+
+# Production build
+phase1/app/frontend/build/
+
+# Environment variables
+phase1/app/frontend/.env.local
+phase1/app/frontend/.env.development.local
+phase1/app/frontend/.env.test.local
+phase1/app/frontend/.env.production.local
+
+# Logs
+phase1/app/frontend/npm-debug.log*
+phase1/app/frontend/yarn-debug.log*
+phase1/app/frontend/yarn-error.log*
+
+# ==================================
+# GENERAL
+# ==================================
+
+# MacOS
+.DS_Store
+
+# Editor directories
+.vscode/
+.idea/
