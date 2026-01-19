@@ -515,6 +515,28 @@ echo -e "${GREEN}✅ Permissions fixed!${NC}"
 echo ""
 
 # ============================================
+# STEP 7: Install SSL Certificate Tools
+# ============================================
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo -e "${CYAN}📦 STEP 7: Install SSL Certificate Tools${NC}"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+# Install Certbot for HTTPS setup (manual)
+echo -n "Installing Certbot... "
+install_package "certbot"
+install_package "python3-certbot-nginx"
+echo -e "${GREEN}✓${NC}"
+
+echo ""
+echo -e "${GREEN}✅ Certbot installed!${NC}"
+echo -e "${YELLOW}⚠ NOTE: Domain and HTTPS setup must be done manually${NC}"
+echo -e "${YELLOW}   See README.md for configuration instructions${NC}"
+
+echo ""
+
+# ============================================
 # DEPLOYMENT COMPLETED
 # ============================================
 
