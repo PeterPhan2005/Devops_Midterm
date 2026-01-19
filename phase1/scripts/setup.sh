@@ -1,14 +1,18 @@
 #!/bin/bash
 
 # ============================================
-# AUTO NAVIGATION TO PHASE1 DIRECTORY
+# SETUP & BUILD AUTOMATION SCRIPT
 # ============================================
+# This script installs dependencies, configures database,
+# and builds production artifacts (JAR + static files)
+# For use with Systemd + Nginx deployment
+
 # Get script directory (phase1/scripts/), then go back 1 level to phase1/
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PHASE1_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "🚀 Notes Application - Complete Deployment"
+echo "🚀 SETUP & BUILD AUTOMATION"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 echo "📍 Script location: $SCRIPT_DIR"
@@ -46,21 +50,22 @@ if [ -f "$ENV_FILE" ]; then
     set +a
     echo -e "${GREEN}✓ Environment variables loaded${NC}"
 else
-    echo -e "${YELLOW}⚠ Warning: .env file not found at $ENV_FILE${NC}"
+    echo -e "${RED}❌ Error: .env file not found at $ENV_FILE${NC}"
     echo "   Please create .env file from .env.example:"
     echo "   cp $SCRIPT_DIR/.env.example $SCRIPT_DIR/.env"
-    echo ""
-    read -p "Do you want to continue with default values? (y/n): " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        exit 1
-    fi
+    echo "   And update your passwords inside .env"
+    exit 1
+fi
+
+# Validate required variables (Prevent security hardcode issues)
+if [ -z "$DB_PASSWORD" ]; then
+    echo -e "${RED}❌ Error: DB_PASSWORD is not set in .env${NC}"
+    exit 1
 fi
 
 # Database Configuration (read from environment or use defaults)
 DB_NAME="${DB_NAME:-notes_app_db}"
 DB_USER="${DB_USER:-postgres}"
-DB_PASSWORD="${DB_PASSWORD:-changeme}"
 
 echo "⚙️  Configuration:"
 echo "   Database: $DB_NAME"
@@ -72,7 +77,7 @@ echo ""
 # ============================================
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "📦 STEP 1: Checking Prerequisites"
+echo "📦 STEP 1: Installing Dependencies"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
@@ -98,16 +103,30 @@ echo ""
 # Function to install packages
 install_package() {
     local package=$1
+    
+    # Check if already installed
+    if command -v "$package" &> /dev/null 2>&1 || dpkg -s "$package" &> /dev/null 2>&1; then
+        echo "✓ $package is already installed"
+        return 0
+    fi
+    
     echo "Installing $package..."
     
     if [ "$PKG_MANAGER" == "apt" ]; then
-        sudo apt update && sudo apt install -y $package
+        sudo apt update -qq && sudo apt install -y "$package"
     elif [ "$PKG_MANAGER" == "yum" ]; then
-        sudo yum install -y $package
+        sudo yum install -y "$package"
     elif [ "$PKG_MANAGER" == "brew" ]; then
-        brew install $package
+        brew install "$package"
     fi
 }
+
+# Install Basic Tools
+echo -n "Checking curl... "
+install_package "curl"
+
+echo -n "Checking git... "
+install_package "git"
 
 # Check Java 21 specifically
 echo -n "Checking Java 21... "
@@ -160,6 +179,16 @@ else
     install_package "maven"
 fi
 
+# Check Nginx (NEW FOR PHASE 2 - Reverse Proxy)
+echo -n "Checking Nginx... "
+if command -v nginx &> /dev/null; then
+    NGINX_VERSION=$(nginx -v 2>&1 | awk -F'/' '{print $2}')
+    echo -e "${GREEN}✓ Found (Nginx $NGINX_VERSION)${NC}"
+else
+    echo -e "${YELLOW}✗ Not found${NC}"
+    install_package "nginx"
+fi
+
 # Check PostgreSQL
 echo -n "Checking PostgreSQL... "
 if command -v psql &> /dev/null; then
@@ -184,6 +213,16 @@ if [ "$OS" == "linux" ]; then
     sudo systemctl enable postgresql 2>/dev/null
 elif [ "$OS" == "mac" ]; then
     brew services start postgresql 2>/dev/null
+fi
+echo -e "${GREEN}✓${NC}"
+
+# Start Nginx service (NEW FOR PHASE 2)
+echo -n "Starting Nginx service... "
+if [ "$OS" == "linux" ]; then
+    sudo systemctl start nginx 2>/dev/null || sudo service nginx start 2>/dev/null
+    sudo systemctl enable nginx 2>/dev/null
+elif [ "$OS" == "mac" ]; then
+    brew services start nginx 2>/dev/null
 fi
 echo -e "${GREEN}✓${NC}"
 
@@ -215,7 +254,7 @@ else
 fi
 
 echo ""
-echo -e "${GREEN}✅ All prerequisites checked!${NC}"
+echo -e "${GREEN}✅ All dependencies installed!${NC}"
 echo ""
 
 # ============================================
@@ -313,11 +352,11 @@ echo -e "${GREEN}✅ Configuration completed!${NC}"
 echo ""
 
 # ============================================
-# STEP 4: START APPLICATION
+# STEP 4: BUILD APPLICATIONS (Production Artifacts)
 # ============================================
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "🚀 STEP 4: Starting Application"
+echo "🏗️  STEP 4: Building Applications"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
@@ -332,8 +371,8 @@ if [ ! -d "app/frontend" ]; then
     exit 1
 fi
 
-# Start Backend
-echo -e "${BLUE}📦 Starting Backend (Spring Boot)...${NC}"
+# --- BUILD BACKEND (Create JAR file) ---
+echo -e "${BLUE}🔨 Building Backend (.jar file)...${NC}"
 cd app/backend
 
 if [ ! -f "pom.xml" ]; then
@@ -341,37 +380,27 @@ if [ ! -f "pom.xml" ]; then
     exit 1
 fi
 
-echo "Running: mvn spring-boot:run"
-mvn spring-boot:run > "$PHASE1_ROOT/backend.log" 2>&1 &
-BACKEND_PID=$!
+echo "Running: mvn clean package -DskipTests"
+mvn clean package -DskipTests
 
-echo -e "Backend PID: ${GREEN}$BACKEND_PID${NC}"
-echo "Backend logs: $PHASE1_ROOT/backend.log"
-
-# Wait for backend
-echo -n "Waiting for backend to start"
-MAX_WAIT=60
-COUNTER=0
-while [ $COUNTER -lt $MAX_WAIT ]; do
-    if curl -s http://localhost:8080/actuator/health > /dev/null 2>&1 || curl -s http://localhost:8080 > /dev/null 2>&1; then
-        echo -e " ${GREEN}✓${NC}"
-        break
+if [ $? -eq 0 ]; then
+    echo -e "${GREEN}✓ Backend built successfully!${NC}"
+    
+    # Find the generated JAR file
+    JAR_FILE=$(find target -name "*.jar" ! -name "*-original.jar" | head -n 1)
+    if [ -n "$JAR_FILE" ]; then
+        echo "   JAR file: $PHASE1_ROOT/app/backend/$JAR_FILE"
     fi
-    echo -n "."
-    sleep 2
-    COUNTER=$((COUNTER+2))
-done
-
-if [ $COUNTER -ge $MAX_WAIT ]; then
-    echo -e " ${YELLOW}⚠${NC}"
-    echo -e "${YELLOW}Backend may still be starting. Check backend.log${NC}"
+else
+    echo -e "${RED}❌ Backend build failed!${NC}"
+    exit 1
 fi
 
 cd "$PHASE1_ROOT"
 echo ""
 
-# Start Frontend
-echo -e "${BLUE}🎨 Starting Frontend (React)...${NC}"
+# --- BUILD FRONTEND (Create static files) ---
+echo -e "${BLUE}🔨 Building Frontend (Static files for Nginx)...${NC}"
 cd app/frontend
 
 if [ ! -f "package.json" ]; then
@@ -380,74 +409,40 @@ if [ ! -f "package.json" ]; then
 fi
 
 if [ ! -d "node_modules" ]; then
-    echo -e "${YELLOW}Installing dependencies...${NC}"
+    echo -e "${YELLOW}Installing dependencies first...${NC}"
     npm install
 fi
 
-echo "Running: npm start"
-BROWSER=none npm start > "$PHASE1_ROOT/frontend.log" 2>&1 &
-FRONTEND_PID=$!
+echo "Running: npm run build"
+npm run build
 
-echo -e "Frontend PID: ${GREEN}$FRONTEND_PID${NC}"
-echo "Frontend logs: $PHASE1_ROOT/frontend.log"
+if [ $? -eq 0 ]; then
+    echo -e "${GREEN}✓ Frontend built successfully!${NC}"
+    echo "   Build directory: $PHASE1_ROOT/app/frontend/build"
+else
+    echo -e "${RED}❌ Frontend build failed!${NC}"
+    exit 1
+fi
 
 cd "$PHASE1_ROOT"
 echo ""
 
 # ============================================
-# DEPLOYMENT COMPLETED
+# BUILD COMPLETED
 # ============================================
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -e "${GREEN}✅ DEPLOYMENT COMPLETED!${NC}"
+echo -e "${GREEN}✅ SETUP & BUILD COMPLETED!${NC}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-echo -e "${BLUE}🌐 Access URLs:${NC}"
-echo -e "   Frontend: ${GREEN}http://localhost:3000${NC}"
-echo -e "   Backend:  ${GREEN}http://localhost:8080${NC}"
+echo -e "${BLUE}📦 Build Artifacts Created:${NC}"
+echo "   Backend JAR:  $PHASE1_ROOT/app/backend/target/*.jar"
+echo "   Frontend:     $PHASE1_ROOT/app/frontend/build/"
 echo ""
-echo -e "${BLUE}📝 Process IDs:${NC}"
-echo "   Backend:  $BACKEND_PID"
-echo "   Frontend: $FRONTEND_PID"
-echo ""
-echo -e "${BLUE}📄 Logs:${NC}"
-echo "   Backend:  tail -f $PHASE1_ROOT/backend.log"
-echo "   Frontend: tail -f $PHASE1_ROOT/frontend.log"
-echo ""
-echo -e "${BLUE}📝 Database:${NC}"
-echo "   URL: jdbc:postgresql://localhost:5432/$DB_NAME"
+echo -e "${BLUE}📝 Database Info:${NC}"
+echo "   URL:  jdbc:postgresql://localhost:5432/$DB_NAME"
 echo "   User: $DB_USER"
 echo ""
-echo -e "${YELLOW}Press Ctrl+C to stop all services${NC}"
+echo -e "${GREEN}✨ Application is ready for deployment!${NC}"
+echo -e "${YELLOW}📖 For deployment instructions, see README.md${NC}"
 echo ""
-
-# Cleanup function
-cleanup() {
-    echo ""
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo -e "${YELLOW}🛑 Stopping application...${NC}"
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    
-    if kill -0 $BACKEND_PID 2>/dev/null; then
-        echo -n "Stopping backend (PID $BACKEND_PID)... "
-        kill $BACKEND_PID 2>/dev/null
-        echo -e "${GREEN}✓${NC}"
-    fi
-    
-    if kill -0 $FRONTEND_PID 2>/dev/null; then
-        echo -n "Stopping frontend (PID $FRONTEND_PID)... "
-        kill $FRONTEND_PID 2>/dev/null
-        echo -e "${GREEN}✓${NC}"
-    fi
-    
-    pkill -f "spring-boot:run" 2>/dev/null
-    pkill -f "react-scripts start" 2>/dev/null
-    
-    echo ""
-    echo -e "${GREEN}Application stopped successfully!${NC}"
-    exit 0
-}
-
-trap cleanup SIGINT SIGTERM
-
-wait
