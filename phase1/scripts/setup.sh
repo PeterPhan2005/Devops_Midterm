@@ -197,9 +197,11 @@ if command -v psql &> /dev/null; then
 else
     echo -e "${YELLOW}✗ Not found${NC}"
     if [ "$PKG_MANAGER" == "apt" ]; then
-        install_package "postgresql postgresql-contrib"
+        install_package "postgresql"
+        install_package "postgresql-contrib"
     elif [ "$PKG_MANAGER" == "yum" ]; then
-        install_package "postgresql-server postgresql-contrib"
+        install_package "postgresql-server"
+        install_package "postgresql-contrib"
         sudo postgresql-setup --initdb
     elif [ "$PKG_MANAGER" == "brew" ]; then
         install_package "postgresql"
@@ -428,7 +430,92 @@ cd "$PHASE1_ROOT"
 echo ""
 
 # ============================================
-# BUILD COMPLETED
+# STEP 5: CONFIGURE SERVICES (Systemd + Nginx)
+# ============================================
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "⚙️  STEP 5: Configuring Services"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+# Get project root (go up to Devops_Midterm from phase1)
+PROJECT_ROOT="$(cd "$PHASE1_ROOT/.." && pwd)"
+CONFIG_DIR="$PROJECT_ROOT/phase2/configs"
+
+if [ ! -d "$CONFIG_DIR" ]; then
+    echo -e "${YELLOW}⚠ Warning: Config directory not found at $CONFIG_DIR${NC}"
+    echo "   Skipping service configuration..."
+else
+    # 1. Configure Backend Service
+    echo -n "Configuring backend systemd service... "
+    if [ -f "$CONFIG_DIR/backend.service" ]; then
+        sudo cp "$CONFIG_DIR/backend.service" /etc/systemd/system/backend.service
+        sudo systemctl daemon-reload
+        sudo systemctl enable backend.service
+        sudo systemctl start backend.service
+        echo -e "${GREEN}✓${NC}"
+    else
+        echo -e "${YELLOW}✗ backend.service not found${NC}"
+    fi
+
+    # 2. Configure Nginx
+    echo -n "Configuring Nginx reverse proxy... "
+    if [ -f "$CONFIG_DIR/nginx.conf" ]; then
+        # Remove default config
+        sudo rm -f /etc/nginx/sites-enabled/default
+        
+        # Copy and enable our config
+        sudo cp "$CONFIG_DIR/nginx.conf" /etc/nginx/sites-available/notes-app
+        sudo ln -sf /etc/nginx/sites-available/notes-app /etc/nginx/sites-enabled/
+        
+        # Test and reload
+        if sudo nginx -t &>/dev/null; then
+            sudo systemctl reload nginx
+            echo -e "${GREEN}✓${NC}"
+        else
+            echo -e "${RED}✗ Nginx config test failed${NC}"
+        fi
+    else
+        echo -e "${YELLOW}✗ nginx.conf not found${NC}"
+    fi
+    
+    echo ""
+    echo -e "${GREEN}✅ Service configuration completed!${NC}"
+fi
+
+echo ""
+
+# ============================================
+# STEP 6: FIX PERMISSIONS (Critical for Nginx)
+# ============================================
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "🔐 STEP 6: Fixing File Permissions"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+# Fix ownership (in case script was run with sudo)
+echo -n "Setting correct ownership... "
+sudo chown -R ubuntu:ubuntu "$PROJECT_ROOT"
+echo -e "${GREEN}✓${NC}"
+
+# Fix home directory permissions for Nginx access
+echo -n "Granting Nginx read permissions... "
+sudo chmod 755 /home/ubuntu
+sudo chmod 755 /home/ubuntu/Devops_Midterm
+sudo chmod 755 /home/ubuntu/Devops_Midterm/phase1
+sudo chmod 755 /home/ubuntu/Devops_Midterm/phase1/app
+sudo chmod 755 /home/ubuntu/Devops_Midterm/phase1/app/frontend
+sudo chmod -R 755 /home/ubuntu/Devops_Midterm/phase1/app/frontend/build
+echo -e "${GREEN}✓${NC}"
+
+echo ""
+echo -e "${GREEN}✅ Permissions fixed!${NC}"
+
+echo ""
+
+# ============================================
+# DEPLOYMENT COMPLETED
 # ============================================
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -439,10 +526,14 @@ echo -e "${BLUE}📦 Build Artifacts Created:${NC}"
 echo "   Backend JAR:  $PHASE1_ROOT/app/backend/target/*.jar"
 echo "   Frontend:     $PHASE1_ROOT/app/frontend/build/"
 echo ""
+echo -e "${BLUE}🔧 Services Configured:${NC}"
+echo "   Backend Service: systemctl status backend"
+echo "   Nginx:           systemctl status nginx"
+echo ""
 echo -e "${BLUE}📝 Database Info:${NC}"
 echo "   URL:  jdbc:postgresql://localhost:5432/$DB_NAME"
 echo "   User: $DB_USER"
 echo ""
-echo -e "${GREEN}✨ Application is ready for deployment!${NC}"
-echo -e "${YELLOW}📖 For deployment instructions, see README.md${NC}"
+echo -e "${GREEN}✨ Application is ready and running!${NC}"
+echo -e "${BLUE}🌐 Access your app at: http://$(curl -s ifconfig.me)${NC}"
 echo ""
