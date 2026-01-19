@@ -4,11 +4,11 @@ After=syslog.target network.target postgresql.service
 
 [Service]
 Type=simple
-User=ubuntu
-WorkingDirectory=/home/ubuntu/Devops_Midterm/phase1/app/backend
+User=${USER}
+WorkingDirectory=${PROJECT_ROOT}/phase1/app/backend
 
 # Java command to run the JAR file
-ExecStart=/usr/bin/java -jar /home/ubuntu/Devops_Midterm/phase1/app/backend/target/notes-backend-1.0.0.jar
+ExecStart=/usr/bin/java -jar ${PROJECT_ROOT}/phase1/app/backend/target/notes-backend-1.0.0.jar
 
 # Auto restart on failure
 Restart=always

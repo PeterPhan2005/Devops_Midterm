@@ -50,11 +50,48 @@ if [ -f "$ENV_FILE" ]; then
     set +a
     echo -e "${GREEN}✓ Environment variables loaded${NC}"
 else
-    echo -e "${RED}❌ Error: .env file not found at $ENV_FILE${NC}"
-    echo "   Please create .env file from .env.example:"
-    echo "   cp $SCRIPT_DIR/.env.example $SCRIPT_DIR/.env"
-    echo "   And update your passwords inside .env"
-    exit 1
+    echo -e "${YELLOW}⚠ .env file not found. Creating from template...${NC}"
+    
+    # Create .env from example
+    if [ ! -f "$SCRIPT_DIR/.env.example" ]; then
+        echo -e "${RED}❌ Error: .env.example not found${NC}"
+        exit 1
+    fi
+    
+    cp "$SCRIPT_DIR/.env.example" "$ENV_FILE"
+    echo -e "${GREEN}✓ Created .env file${NC}"
+    echo ""
+    
+    # Prompt for database password (secure input with hidden characters)
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo -e "${CYAN}🔐 Database Configuration${NC}"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo -e "${YELLOW}Please enter PostgreSQL password for user 'postgres':${NC}"
+    echo -e "${YELLOW}(Input will be hidden for security)${NC}"
+    echo ""
+    
+    # Read password securely (-s hides input, -r prevents backslash escaping)
+    read -rsp "DB Password: " USER_DB_PASS
+    echo "" # New line after hidden input
+    
+    # Validate password is not empty
+    if [ -z "$USER_DB_PASS" ]; then
+        echo -e "${RED}❌ Error: Password cannot be empty${NC}"
+        rm -f "$ENV_FILE"
+        exit 1
+    fi
+    
+    # Update .env file with user password using sed
+    # Use | as delimiter to avoid issues with / in password
+    sed -i "s|^DB_PASSWORD=.*|DB_PASSWORD=$USER_DB_PASS|" "$ENV_FILE"
+    
+    echo -e "${GREEN}✓ Database password saved to .env${NC}"
+    echo ""
+    
+    # Reload environment variables
+    set -a
+    source "$ENV_FILE"
+    set +a
 fi
 
 # Validate required variables (Prevent security hardcode issues)
@@ -322,10 +359,10 @@ if [ ! -f "$APP_PROP" ]; then
         echo -n "Creating application.properties... "
         cp "$APP_PROP_EXAMPLE" "$APP_PROP"
         
-        # Update credentials
-        sed -i.bak "s/your_database_name/$DB_NAME/g" "$APP_PROP"
-        sed -i.bak "s/your_username/$DB_USER/g" "$APP_PROP"
-        sed -i.bak "s/your_password/$DB_PASSWORD/g" "$APP_PROP"
+        # Update credentials (use | delimiter to handle special chars in password)
+        sed -i.bak "s|your_database_name|$DB_NAME|g" "$APP_PROP"
+        sed -i.bak "s|your_username|$DB_USER|g" "$APP_PROP"
+        sed -i.bak "s|your_password|$DB_PASSWORD|g" "$APP_PROP"
         rm -f "$APP_PROP.bak"
         
         echo -e "${GREEN}✓${NC}"
@@ -449,7 +486,10 @@ else
     # 1. Configure Backend Service
     echo -n "Configuring backend systemd service... "
     if [ -f "$CONFIG_DIR/backend.service" ]; then
-        sudo cp "$CONFIG_DIR/backend.service" /etc/systemd/system/backend.service
+        # Replace environment variables in template
+        sed "s|\${USER}|$USER|g; s|\${PROJECT_ROOT}|$PROJECT_ROOT|g" "$CONFIG_DIR/backend.service" | \
+            sudo tee /etc/systemd/system/backend.service > /dev/null
+        
         sudo systemctl daemon-reload
         sudo systemctl enable backend.service
         sudo systemctl start backend.service
@@ -464,8 +504,10 @@ else
         # Remove default config
         sudo rm -f /etc/nginx/sites-enabled/default
         
-        # Copy and enable our config
-        sudo cp "$CONFIG_DIR/nginx.conf" /etc/nginx/sites-available/notes-app
+        # Replace environment variables in template and copy
+        sed "s|\${PROJECT_ROOT}|$PROJECT_ROOT|g" "$CONFIG_DIR/nginx.conf" | \
+            sudo tee /etc/nginx/sites-available/notes-app > /dev/null
+        
         sudo ln -sf /etc/nginx/sites-available/notes-app /etc/nginx/sites-enabled/
         
         # Test and reload
@@ -496,21 +538,43 @@ echo ""
 
 # Fix ownership (in case script was run with sudo)
 echo -n "Setting correct ownership... "
-sudo chown -R ubuntu:ubuntu "$PROJECT_ROOT"
+sudo chown -R $USER:$USER "$PROJECT_ROOT"
 echo -e "${GREEN}✓${NC}"
 
 # Fix home directory permissions for Nginx access
 echo -n "Granting Nginx read permissions... "
-sudo chmod 755 /home/ubuntu
-sudo chmod 755 /home/ubuntu/Devops_Midterm
-sudo chmod 755 /home/ubuntu/Devops_Midterm/phase1
-sudo chmod 755 /home/ubuntu/Devops_Midterm/phase1/app
-sudo chmod 755 /home/ubuntu/Devops_Midterm/phase1/app/frontend
-sudo chmod -R 755 /home/ubuntu/Devops_Midterm/phase1/app/frontend/build
+sudo chmod 755 /home/$USER
+sudo chmod 755 "$PROJECT_ROOT"
+sudo chmod 755 "$PROJECT_ROOT/phase1"
+sudo chmod 755 "$PROJECT_ROOT/phase1/app"
+sudo chmod 755 "$PROJECT_ROOT/phase1/app/frontend"
+sudo chmod -R 755 "$PROJECT_ROOT/phase1/app/frontend/build"
 echo -e "${GREEN}✓${NC}"
 
 echo ""
 echo -e "${GREEN}✅ Permissions fixed!${NC}"
+
+echo ""
+
+# ============================================
+# STEP 7: Install SSL Certificate Tools
+# ============================================
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo -e "${CYAN}📦 STEP 7: Install SSL Certificate Tools${NC}"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+# Install Certbot for HTTPS setup (manual)
+echo -n "Installing Certbot... "
+install_package "certbot"
+install_package "python3-certbot-nginx"
+echo -e "${GREEN}✓${NC}"
+
+echo ""
+echo -e "${GREEN}✅ Certbot installed!${NC}"
+echo -e "${YELLOW}⚠ NOTE: Domain and HTTPS setup must be done manually${NC}"
+echo -e "${YELLOW}   See README.md for configuration instructions${NC}"
 
 echo ""
 
