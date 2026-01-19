@@ -197,9 +197,11 @@ if command -v psql &> /dev/null; then
 else
     echo -e "${YELLOW}✗ Not found${NC}"
     if [ "$PKG_MANAGER" == "apt" ]; then
-        install_package "postgresql postgresql-contrib"
+        install_package "postgresql"
+        install_package "postgresql-contrib"
     elif [ "$PKG_MANAGER" == "yum" ]; then
-        install_package "postgresql-server postgresql-contrib"
+        install_package "postgresql-server"
+        install_package "postgresql-contrib"
         sudo postgresql-setup --initdb
     elif [ "$PKG_MANAGER" == "brew" ]; then
         install_package "postgresql"
