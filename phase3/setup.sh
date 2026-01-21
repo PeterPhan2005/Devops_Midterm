@@ -131,43 +131,34 @@ if [ ! -f .env ]; then
     echo "✅  Created .env from .env.example"
     echo ""
     
-    # Prompt for Docker Hub username (REQUIRED)
-    echo "📝 Configuration Setup (3 required fields):"
+    # Prompt for database password only (other values already in .env.example)
+    echo "🔐 Database Configuration:"
     echo "------------------------------------------"
-    while true; do
-        read -p "1. Enter your Docker Hub username: " DOCKER_USER
-        if [ -z "$DOCKER_USER" ]; then
-            echo "❌  Docker Hub username cannot be empty!"
-        else
-            sed -i "s/^DOCKER_USERNAME=.*/DOCKER_USERNAME=$DOCKER_USER/" .env
-            break
-        fi
-    done
-    
-    # Prompt for image tag (REQUIRED, default v1)
-    read -p "2. Enter image tag [default: v1]: " IMAGE_TAG
-    IMAGE_TAG=${IMAGE_TAG:-v1}
-    sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=$IMAGE_TAG/" .env
+    echo "📝  Using default values from .env.example:"
+    echo "    - Docker Hub Username: khangtrong"
+    echo "    - Image Tag: v1"
+    echo "    - Database User: postgres"
+    echo "    - Database Name: notes_app_db"
+    echo ""
+    echo "Please set a secure database password:"
     
     # Prompt for database password (REQUIRED)
-    echo "3. Database password:"
     while true; do
-        read -sp "   Enter database password: " DB_PASSWORD
+        read -sp "Enter database password: " DB_PASSWORD
         echo ""
-        read -sp "   Confirm database password: " DB_PASSWORD_CONFIRM
+        read -sp "Confirm database password: " DB_PASSWORD_CONFIRM
         echo ""
         
         if [ "$DB_PASSWORD" == "$DB_PASSWORD_CONFIRM" ]; then
             sed -i "s/^DB_PASSWORD=.*/DB_PASSWORD=$DB_PASSWORD/" .env
             break
         else
-            echo "   ❌  Passwords do not match. Please try again."
+            echo "❌  Passwords do not match. Please try again."
         fi
     done
     
     echo ""
     echo "✅  Configuration completed."
-    echo "📝  Using default values: DB_USER=postgres, DB_NAME=notes_app_db"
     
     echo ""
     echo "✅  Environment variables configured."
