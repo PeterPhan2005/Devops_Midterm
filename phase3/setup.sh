@@ -75,6 +75,15 @@ if ! command -v nginx &> /dev/null; then
     sudo apt-get install -y nginx
 fi
 
+# Install Certbot for SSL/HTTPS
+if ! command -v certbot &> /dev/null; then
+    echo "Installing Certbot (Let's Encrypt SSL)..."
+    sudo apt-get install -y certbot python3-certbot-nginx
+    echo "✅  Certbot installed."
+else
+    echo "✓  Certbot already installed ($(certbot --version 2>&1 | head -1))"
+fi
+
 # Install Docker
 if ! command -v docker &> /dev/null; then
     echo "Installing Docker..."
