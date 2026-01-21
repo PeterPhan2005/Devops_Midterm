@@ -80,23 +80,4 @@ public class NoteController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         }
     }
-    
-    @GetMapping("/{id}/file")
-    public ResponseEntity<?> downloadFile(@PathVariable Long id) {
-        try {
-            byte[] fileData = noteService.getFileData(id);
-            String fileName = noteService.getFileName(id);
-            String fileType = noteService.getFileType(id);
-            
-            ByteArrayResource resource = new ByteArrayResource(fileData);
-            
-            return ResponseEntity.ok()
-                    .contentType(MediaType.parseMediaType(fileType))
-                    .header(HttpHeaders.CONTENT_DISPOSITION, 
-                            "attachment; filename=\"" + fileName + "\"")
-                    .body(resource);
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
-        }
-    }
 }

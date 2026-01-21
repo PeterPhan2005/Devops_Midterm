@@ -15,6 +15,7 @@ public class NoteDTO {
     private String content;
     private String fileName;
     private String fileType;
+    private String attachmentUrl;
     private boolean hasFile;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

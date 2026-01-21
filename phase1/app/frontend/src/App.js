@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
-import { FaPlus, FaTrash, FaTimes, FaPaperclip, FaDownload, FaStickyNote } from 'react-icons/fa';
+import { FaPlus, FaTrash, FaTimes, FaPaperclip, FaDownload } from 'react-icons/fa';
 import noteService from './services/noteService';
 
 function App() {
@@ -175,14 +175,9 @@ function App() {
               <div className="note-footer">
                 <span className="note-date">{formatDate(note.updatedAt)}</span>
                 {note.hasFile && (
-                  <a
-                    href={noteService.downloadFile(note.id)}
-                    className="file-download-link"
-                    onClick={(e) => e.stopPropagation()}
-                    download
-                  >
-                    <FaDownload /> {note.fileName}
-                  </a>
+                  <span className="file-indicator">
+                    <FaPaperclip /> {note.fileName}
+                  </span>
                 )}
               </div>
             </div>
@@ -252,8 +247,24 @@ function App() {
                   </div>
                 )}
                 {currentNote && currentNote.hasFile && !formData.file && (
-                  <div className="file-info">
-                    Current file: {currentNote.fileName}
+                  <div className="file-preview">
+                    <div className="file-info">Current file: {currentNote.fileName}</div>
+                    {currentNote.fileType && currentNote.fileType.startsWith('image/') ? (
+                      <img 
+                        src={currentNote.attachmentUrl} 
+                        alt={currentNote.fileName}
+                        className="preview-image"
+                      />
+                    ) : (
+                      <a 
+                        href={currentNote.attachmentUrl} 
+                        download={currentNote.fileName}
+                        className="download-link"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <FaDownload /> Download {currentNote.fileName}
+                      </a>
+                    )}
                   </div>
                 )}
               </div>

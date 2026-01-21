@@ -32,8 +32,8 @@ public class Note {
     @Column(name = "file_type")
     private String fileType;
     
-    @Column(name = "file_data")
-    private byte[] fileData;
+    @Column(name = "attachment_url")
+    private String attachmentUrl;
     
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
