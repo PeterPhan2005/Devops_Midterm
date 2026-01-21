@@ -12,6 +12,10 @@ phase1/app/backend/target/
 phase1/app/backend/src/main/resources/application.properties
 phase1/app/backend/src/main/resources/application-*.properties
 
+# Uploaded Files
+phase1/app/backend/uploads/
+*.uploaded
+
 # Environment Variables
 .env
 phase1/scripts/.env

@@ -56,11 +56,7 @@ export const noteService = {
   deleteNote: async (id) => {
     const response = await api.delete(`/${id}`);
     return response.data;
-  },
-
-  downloadFile: (id) => {
-    return `${API_BASE_URL}/${id}/file`;
-  },
+  }
 };
 
 export default noteService;

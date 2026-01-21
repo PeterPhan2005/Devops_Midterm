@@ -17,6 +17,9 @@ public class NoteService {
     @Autowired
     private NoteRepository noteRepository;
     
+    @Autowired
+    private FileStorageService fileStorageService;
+    
     public List<NoteDTO> getAllNotes() {
         return noteRepository.findAllByOrderByUpdatedAtDesc()
                 .stream()
@@ -37,9 +40,10 @@ public class NoteService {
         
         if (file != null && !file.isEmpty()) {
             validateFileSize(file);
+            String storedFileName = fileStorageService.storeFile(file);
             note.setFileName(file.getOriginalFilename());
             note.setFileType(file.getContentType());
-            note.setFileData(file.getBytes());
+            note.setAttachmentUrl("/uploads/" + storedFileName);
         }
         
         Note savedNote = noteRepository.save(note);
@@ -55,9 +59,18 @@ public class NoteService {
         
         if (file != null && !file.isEmpty()) {
             validateFileSize(file);
+            
+            // Delete old file if exists
+            if (note.getAttachmentUrl() != null) {
+                String oldFileName = note.getAttachmentUrl().replace("/uploads/", "");
+                fileStorageService.deleteFile(oldFileName);
+            }
+            
+            // Store new file
+            String storedFileName = fileStorageService.storeFile(file);
             note.setFileName(file.getOriginalFilename());
             note.setFileType(file.getContentType());
-            note.setFileData(file.getBytes());
+            note.setAttachmentUrl("/uploads/" + storedFileName);
         }
         
         Note updatedNote = noteRepository.save(note);
@@ -65,33 +78,16 @@ public class NoteService {
     }
     
     public void deleteNote(Long id) {
-        if (!noteRepository.existsById(id)) {
-            throw new RuntimeException("Note not found with id: " + id);
+        Note note = noteRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Note not found with id: " + id));
+        
+        // Delete file if exists
+        if (note.getAttachmentUrl() != null) {
+            String fileName = note.getAttachmentUrl().replace("/uploads/", "");
+            fileStorageService.deleteFile(fileName);
         }
+        
         noteRepository.deleteById(id);
-    }
-    
-    public byte[] getFileData(Long id) {
-        Note note = noteRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Note not found with id: " + id));
-        
-        if (note.getFileData() == null) {
-            throw new RuntimeException("No file attached to this note");
-        }
-        
-        return note.getFileData();
-    }
-    
-    public String getFileName(Long id) {
-        Note note = noteRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Note not found with id: " + id));
-        return note.getFileName();
-    }
-    
-    public String getFileType(Long id) {
-        Note note = noteRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Note not found with id: " + id));
-        return note.getFileType();
     }
     
     private void validateFileSize(MultipartFile file) {
@@ -108,7 +104,8 @@ public class NoteService {
         dto.setContent(note.getContent());
         dto.setFileName(note.getFileName());
         dto.setFileType(note.getFileType());
-        dto.setHasFile(note.getFileData() != null && note.getFileData().length > 0);
+        dto.setAttachmentUrl(note.getAttachmentUrl());
+        dto.setHasFile(note.getAttachmentUrl() != null && !note.getAttachmentUrl().isEmpty());
         dto.setCreatedAt(note.getCreatedAt());
         dto.setUpdatedAt(note.getUpdatedAt());
         return dto;

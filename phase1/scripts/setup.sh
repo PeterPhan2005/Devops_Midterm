@@ -292,6 +292,19 @@ else
     echo -e "${YELLOW}⚠ npm should come with Node.js${NC}"
 fi
 
+# Check Certbot (for SSL/HTTPS)
+echo -n "Checking Certbot... "
+if command -v certbot &> /dev/null; then
+    CERTBOT_VERSION=$(certbot --version 2>&1 | awk '{print $2}')
+    echo -e "${GREEN}✓ Found (Certbot $CERTBOT_VERSION)${NC}"
+else
+    echo -e "${YELLOW}✗ Not found${NC}"
+    install_package "certbot"
+    if [ "$PKG_MANAGER" == "apt" ]; then
+        install_package "python3-certbot-nginx"
+    fi
+fi
+
 echo ""
 echo -e "${GREEN}✅ All dependencies installed!${NC}"
 echo ""
@@ -388,6 +401,17 @@ fi
 
 echo ""
 echo -e "${GREEN}✅ Configuration completed!${NC}"
+echo ""
+
+# Create uploads directory (permissions will be set in STEP 5)
+echo -n "Creating uploads directory... "
+UPLOADS_DIR="app/backend/uploads"
+if [ ! -d "$UPLOADS_DIR" ]; then
+    mkdir -p "$UPLOADS_DIR"
+    echo -e "${GREEN}✓${NC}"
+else
+    echo -e "${GREEN}✓ (already exists)${NC}"
+fi
 echo ""
 
 # ============================================
@@ -526,13 +550,8 @@ else
 fi
 
 echo ""
-
-# ============================================
-# STEP 6: FIX PERMISSIONS (Critical for Nginx)
-# ============================================
-
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "🔐 STEP 6: Fixing File Permissions"
+echo "🔐 Fixing File Permissions (for Nginx)"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
@@ -551,30 +570,13 @@ sudo chmod 755 "$PROJECT_ROOT/phase1/app/frontend"
 sudo chmod -R 755 "$PROJECT_ROOT/phase1/app/frontend/build"
 echo -e "${GREEN}✓${NC}"
 
-echo ""
-echo -e "${GREEN}✅ Permissions fixed!${NC}"
-
-echo ""
-
-# ============================================
-# STEP 7: Install SSL Certificate Tools
-# ============================================
-
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -e "${CYAN}📦 STEP 7: Install SSL Certificate Tools${NC}"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo ""
-
-# Install Certbot for HTTPS setup (manual)
-echo -n "Installing Certbot... "
-install_package "certbot"
-install_package "python3-certbot-nginx"
+# Fix uploads directory permissions
+echo -n "Setting uploads directory permissions... "
+sudo chmod -R 755 "$PROJECT_ROOT/phase1/app/backend/uploads"
 echo -e "${GREEN}✓${NC}"
 
 echo ""
-echo -e "${GREEN}✅ Certbot installed!${NC}"
-echo -e "${YELLOW}⚠ NOTE: Domain and HTTPS setup must be done manually${NC}"
-echo -e "${YELLOW}   See README.md for configuration instructions${NC}"
+echo -e "${GREEN}✅ Service configuration and permissions completed!${NC}"
 
 echo ""
 
