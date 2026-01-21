@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  # ==========================================
+  # SERVICE 1: DATABASE (PostgreSQL)
+  # ==========================================
+  db:
+    image: postgres:15
+    container_name: notes_db_container
+    restart: always # Tự khởi động lại nếu crash hoặc server reboot
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - db_data:/var/lib/postgresql/data # Volume để giữ data DB không bị mất
+    networks:
+      - app-network
+
+  # ==========================================
+  # SERVICE 2: WEB APPLICATION (Java Backend)
+  # ==========================================
+  app:
+    # ⚠️ QUAN TRỌNG: Thay username bằng tài khoản Docker Hub của bạn
+    image: ${DOCKER_USERNAME}/notes-backend:${IMAGE_TAG}
+    container_name: notes_app_container
+    restart: always
+    ports:
+      - "8080:8080" # Map cổng 8080 của Host vào 8080 của Container
+    depends_on:
+      - db # Chờ Database chạy xong mới chạy App
+    environment:
+      # Cấu hình kết nối DB (Lưu ý: host là 'db', không phải 'localhost')
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${DB_NAME}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      # Cấu hình Upload (Ghi đè application.properties)
+      APP_UPLOAD_DIR: /app/uploads
+    volumes:
+      # BIND MOUNT: Nối thư mục thật trên Host vào thư mục ảo trong Container
+      # Để Nginx (ở ngoài Host) có thể lấy ảnh hiển thị
+      - ./uploads:/app/uploads
+    networks:
+      - app-network
+
+# ==========================================
+# KHAI BÁO VOLUME & NETWORK
+# ==========================================
+volumes:
+  db_data: # Volume quản lý bởi Docker (cho DB)
+
+networks:
+  app-network:
+    driver: bridge
