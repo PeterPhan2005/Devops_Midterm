@@ -159,10 +159,18 @@ git clone <your-repository-url>
 cd Devops_Midterm
 ```
 
-### Step 2: Run Automated Setup
+### Step 2: Choose Deployment Method
+
+You have **two deployment options**:
+
+---
+
+#### **Option A: Traditional Deployment (Phase 1/2)**
+
+**Best for:** Simple setup, direct control, learning traditional Linux deployment
 
 ```bash
-# Navigate to scripts directory
+# Navigate to Phase 1 scripts directory
 cd phase1/scripts
 
 # Make script executable
@@ -183,7 +191,62 @@ chmod +x setup.sh
 
 **Result:** App running at `http://YOUR_SERVER_IP`
 
+**Architecture:** Backend runs as systemd service, PostgreSQL on host, Nginx serves frontend and proxies API
+
+---
+
+#### **Option B: Docker Deployment (Phase 3)**
+
+**Best for:** Containerization, isolation, modern DevOps practices, easy scaling
+
+**Prerequisites:**
+- Build Docker image locally (Windows/Mac):
+  ```powershell
+  cd phase1\app\backend
+  mvn clean package -DskipTests
+  docker build -t your-dockerhub-username/notes-backend:v1 .
+  docker push your-dockerhub-username/notes-backend:v1
+  ```
+
+**On Server:**
+```bash
+# Navigate to Phase 3 directory
+cd phase3
+
+# Make script executable
+chmod +x setup.sh
+
+# Run setup with sudo (required for Docker commands)
+sudo ./setup.sh
+```
+
+**What happens:**
+- ✅ Stops Phase 2 services if running (auto-cleanup)
+- ✅ Installs: Docker, Docker Compose, Nginx
+- ✅ Prompts for: Docker Hub username, image tag, database password
+- ✅ Pulls Docker image from Docker Hub
+- ✅ Starts containers: Backend + PostgreSQL (with docker-compose)
+- ✅ Configures Nginx to serve uploads from phase3/uploads/
+- ✅ Sets restart policy: containers auto-start on reboot
+
+**Result:** App running at `http://YOUR_SERVER_IP` (containerized)
+
+**Architecture:** Backend and PostgreSQL run in Docker containers, Nginx on host serves static files and proxies to container
+
+**Useful Commands:**
+```bash
+sudo docker compose ps              # Check container status
+sudo docker compose logs -f app     # View backend logs
+sudo docker compose logs -f db      # View database logs
+sudo docker compose restart         # Restart all containers
+sudo docker compose down            # Stop all containers
+```
+
+---
+
 ### Step 3: Configure Domain (Optional)
+
+**Applies to both Phase 1 and Phase 3 deployments.**
 
 If you have a domain name:
 
@@ -199,6 +262,8 @@ sudo systemctl restart nginx
 ```
 
 ### Step 4: Enable HTTPS (Optional)
+
+**Applies to both Phase 1 and Phase 3 deployments.**
 
 ```bash
 # Run Certbot to get SSL certificate
