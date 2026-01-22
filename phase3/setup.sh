@@ -84,6 +84,16 @@ else
     echo "✓  Certbot already installed ($(certbot --version 2>&1 | head -1))"
 fi
 
+# Install Node.js for building Frontend
+if ! command -v node &> /dev/null; then
+    echo "Installing Node.js (for building Frontend)..."
+    curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+    sudo apt-get install -y nodejs
+    echo "✅  Node.js installed ($(node -v))"
+else
+    echo "✓  Node.js already installed ($(node -v))"
+fi
+
 # Install Docker
 if ! command -v docker &> /dev/null; then
     echo "Installing Docker..."
@@ -178,12 +188,13 @@ fi
 echo ""
 
 # ==========================================
-# STEP 3: PREPARE UPLOADS DIRECTORY
+# STEP 3: PREPARE DIRECTORIES AND BUILD FRONTEND
 # ==========================================
 
-echo "📁 STEP 3: Preparing uploads directory..."
+echo "📁 STEP 3: Preparing directories and building frontend..."
 echo "------------------------------------------"
 
+# 3.1: Create uploads directory
 cd "$PHASE3_DIR"
 
 if [ ! -d uploads ]; then
@@ -195,6 +206,34 @@ fi
 
 chmod 755 uploads
 echo "✅  Set permissions for uploads directory."
+echo ""
+
+# 3.2: Build React Frontend
+FRONTEND_DIR="$PROJECT_ROOT/phase1/app/frontend"
+
+if [ -d "$FRONTEND_DIR" ]; then
+    echo "⚛️  Building React Frontend..."
+    cd "$FRONTEND_DIR"
+    
+    echo "Installing NPM dependencies..."
+    npm install
+    
+    echo "Building production bundle..."
+    CI=false npm run build
+    
+    if [ -d "build" ]; then
+        echo "✅  Frontend built successfully!"
+        echo "    Build location: $FRONTEND_DIR/build"
+    else
+        echo "❌  Build failed! Directory 'build' not found."
+        exit 1
+    fi
+else
+    echo "❌  Frontend directory not found at: $FRONTEND_DIR"
+    echo "Please check your repository structure."
+    exit 1
+fi
+
 echo ""
 
 # ==========================================
