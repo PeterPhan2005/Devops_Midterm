@@ -226,6 +226,11 @@ echo "------------------------------------------"
 # Set uploads path
 UPLOADS_PATH="$PHASE3_DIR/uploads/"
 
+if [ -f /etc/nginx/sites-enabled/default ]; then
+    echo "🗑️  Removing default Nginx config..."
+    sudo rm -f /etc/nginx/sites-enabled/default
+fi
+
 # Remove old config if exists (backup first)
 if [ -f "$NGINX_CONFIG" ]; then
     echo "⚠️  Existing Nginx config found. Creating backup..."
