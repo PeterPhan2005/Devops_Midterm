@@ -190,7 +190,7 @@ else
     echo "✓  Uploads directory already exists."
 fi
 
-chmod 755 uploads
+chmod -R 777 uploads
 echo "✅  Set permissions for uploads directory."
 echo ""
 
