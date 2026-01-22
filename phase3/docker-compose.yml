@@ -43,6 +43,21 @@ services:
     networks:
       - app-network
 
+  # ==========================================
+  # SERVICE 3: FRONTEND (React + Nginx)
+  # ==========================================
+  frontend:
+    build:
+      context: ../phase1/app/frontend
+      dockerfile: Dockerfile
+    image: ${DOCKER_USERNAME}/notes-frontend:${IMAGE_TAG}
+    container_name: notes_frontend_container
+    restart: always
+    ports:
+      - "3000:80" # Map cổng 3000 của Host vào cổng 80 của Container
+    networks:
+      - app-network
+
 # ==========================================
 # KHAI BÁO VOLUME & NETWORK
 # ==========================================

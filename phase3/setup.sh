@@ -168,9 +168,6 @@ if [ ! -f .env ]; then
     
     echo ""
     echo "✅  Configuration completed."
-    
-    echo ""
-    echo "✅  Environment variables configured."
 else
     echo "✓  Using existing .env file."
 fi
@@ -198,68 +195,75 @@ echo "✅  Set permissions for uploads directory."
 echo ""
 
 # ==========================================
-# STEP 4: CONFIGURE NGINX
+# STEP 4: CONFIGURE HOST NGINX (REVERSE PROXY)
 # ==========================================
 
-echo "🌐 STEP 4: Configuring Nginx..."
+echo "🌐 STEP 4: Configuring Nginx (Reverse Proxy)..."
 echo "------------------------------------------"
 
-# Check if nginx config exists
+# Set uploads path
+UPLOADS_PATH="$PHASE3_DIR/uploads/"
+
+# Remove old config if exists (backup first)
 if [ -f "$NGINX_CONFIG" ]; then
-    echo "✓  Found existing Nginx config at $NGINX_CONFIG"
-    
-    # Update uploads path to point to phase3/uploads
-    UPLOADS_PATH="$PHASE3_DIR/uploads/"
-    
-    # Check if alias line exists
-    if grep -q "alias.*uploads" "$NGINX_CONFIG"; then
-        echo "Updating uploads path in Nginx config..."
-        sudo sed -i "s|alias .*/uploads/.*|alias $UPLOADS_PATH;|g" "$NGINX_CONFIG"
-        echo "✅  Updated uploads path to: $UPLOADS_PATH"
-    else
-        echo "⚠️  No uploads alias found in Nginx config."
-        echo "Please manually add this location block to $NGINX_CONFIG:"
-        echo ""
-        echo "    location /uploads/ {"
-        echo "        alias $UPLOADS_PATH;"
-        echo "        expires 1y;"
-        echo "        add_header Cache-Control \"public, immutable\";"
-        echo "    }"
-    fi
-else
-    echo "⚠️  Nginx config not found. Creating new config..."
-    
-    if [ ! -f "$PROJECT_ROOT/phase2/configs/nginx.conf" ]; then
-        echo "❌  Template config not found at phase2/configs/nginx.conf"
-        echo "Please create Nginx config manually."
-    else
-        # Copy template and replace variables
-        sudo cp "$PROJECT_ROOT/phase2/configs/nginx.conf" "$NGINX_CONFIG"
-        
-        # Replace PROJECT_ROOT variable
-        sudo sed -i "s|\${PROJECT_ROOT}|$PROJECT_ROOT|g" "$NGINX_CONFIG"
-        
-        # Update uploads path to phase3
-        sudo sed -i "s|phase1/app/backend/uploads/|phase3/uploads/|g" "$NGINX_CONFIG"
-        
-        # Create symbolic link if not exists
-        if [ ! -L "$NGINX_ENABLED" ]; then
-            sudo ln -s "$NGINX_CONFIG" "$NGINX_ENABLED"
-        fi
-        
-        echo "✅  Created Nginx config from template."
-    fi
+    echo "⚠️  Existing Nginx config found. Creating backup..."
+    sudo cp "$NGINX_CONFIG" "$NGINX_CONFIG.backup.$(date +%Y%m%d_%H%M%S)"
+    sudo rm "$NGINX_CONFIG"
+    echo "✅  Backup created and old config removed."
 fi
 
-# Test nginx config
+# Create new config for Phase 3 Docker deployment
+echo "Creating new Nginx configuration for Docker containers..."
+
+sudo tee "$NGINX_CONFIG" > /dev/null <<EOF
+server {
+    listen 80;
+    server_name _;
+
+    # --- FRONTEND: Proxy vào Docker Container (Port 3000) ---
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+
+    # --- BACKEND: Proxy vào Docker Container (Port 8080) ---
+    location /api/ {
+        proxy_pass http://localhost:8080/api/;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+
+    # --- UPLOADS: Serve file từ thư mục Host (Mount volume) ---
+    location /uploads/ {
+        alias $UPLOADS_PATH;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+}
+EOF
+
+# Link to sites-enabled if not already linked
+if [ ! -L "$NGINX_ENABLED" ]; then 
+    sudo ln -s "$NGINX_CONFIG" "$NGINX_ENABLED"
+    echo "✅  Linked config to sites-enabled"
+fi
+
+# Test and reload nginx
 if sudo nginx -t 2>&1 | grep -q "successful"; then
-    echo "✅  Nginx configuration is valid."
     sudo systemctl reload nginx
-    echo "✅  Nginx reloaded."
+    echo "✅  Nginx configuration is valid and reloaded."
 else
-    echo "⚠️  Nginx configuration test failed. Please check manually."
+    echo "⚠️  Nginx configuration test failed."
+    sudo nginx -t
+    exit 1
 fi
 
+echo "✅  Nginx configured for Phase 3 Docker deployment."
 echo ""
 
 # ==========================================
@@ -271,7 +275,7 @@ echo "------------------------------------------"
 
 cd "$PHASE3_DIR"
 
-# Pull latest images
+# Pull latest images (both backend and frontend from Docker Hub)
 echo "Pulling Docker images..."
 sudo docker compose pull
 
@@ -322,6 +326,14 @@ else
     echo "⚠️  Database not ready yet. Check logs with: sudo docker compose logs db"
 fi
 
+# Check frontend container
+echo "Testing frontend container..."
+if curl -f http://localhost:3000 > /dev/null 2>&1; then
+    echo "✅  Frontend container is responding."
+else
+    echo "⚠️  Frontend not responding yet. Check logs with: sudo docker compose logs frontend"
+fi
+
 echo ""
 echo "=========================================="
 echo "  DEPLOYMENT COMPLETED!"
@@ -331,18 +343,44 @@ echo "📋 Useful Commands:"
 echo "  View logs:           sudo docker compose logs -f"
 echo "  View app logs:       sudo docker compose logs -f app"
 echo "  View db logs:        sudo docker compose logs -f db"
+echo "  View frontend logs:  sudo docker compose logs -f frontend"
 echo "  Stop containers:     sudo docker compose down"
 echo "  Restart containers:  sudo docker compose restart"
 echo "  Check status:        sudo docker compose ps"
 echo ""
 echo "🌐 Application URLs:"
 echo "  Backend API:         http://localhost:8080/api/notes"
+echo "  Frontend:            http://localhost:3000"
 echo "  Uploads:             http://localhost:8080/uploads/"
+
+# Check if domain is configured
 if [ -f "$NGINX_CONFIG" ]; then
     DOMAIN=$(grep -oP 'server_name \K[^;]+' "$NGINX_CONFIG" | head -1 | xargs)
     if [ ! -z "$DOMAIN" ] && [ "$DOMAIN" != "_" ]; then
         echo "  Public Domain:       https://$DOMAIN"
+    else
+        echo ""
+        echo "📌 NEXT STEPS: Configure Domain & SSL (Optional)"
+        echo "=========================================="
+        echo ""
+        echo "If you have a domain name, run these commands:"
+        echo ""
+        echo "1️⃣  Update Nginx with your domain:"
+        echo "    sudo sed -i 's/server_name _;/server_name your-domain.com www.your-domain.com;/g' /etc/nginx/sites-available/notes-app"
+        echo "    sudo nginx -t"
+        echo "    sudo systemctl reload nginx"
+        echo ""
+        echo "2️⃣  Enable HTTPS with Let's Encrypt:"
+        echo "    sudo certbot --nginx"
+        echo ""
+        echo "    Follow prompts:"
+        echo "    - Enter email address"
+        echo "    - Agree to Terms of Service"
+        echo "    - Choose: Redirect HTTP to HTTPS (recommended)"
+        echo ""
+        echo "After setup, access your app at: https://your-domain.com"
     fi
 fi
+
 echo ""
 echo "✅  Phase 3 deployment completed successfully!"
