@@ -190,8 +190,30 @@ else
     echo "✓  Uploads directory already exists."
 fi
 
+# 1. Cấp quyền 777 cho thư mục uploads
 chmod -R 777 uploads
-echo "✅  Set permissions for uploads directory."
+echo "✅  Set permissions (777) for uploads directory."
+
+# 2. [QUAN TRỌNG] Cấp quyền traversal cho thư mục cha
+# Để Nginx (www-data) có thể đi từ /home -> /home/ubuntu -> ... -> uploads
+echo "🔓 Granting traversal permissions for Nginx (www-data)..."
+
+# Cấp quyền execute cho thư mục dự án (phase root)
+chmod o+x "$PROJECT_ROOT"
+echo "✅  Set o+x for: $PROJECT_ROOT"
+
+# Cấp quyền execute cho thư mục cha (thường là /home/ubuntu)
+PARENT_DIR="$(dirname "$PROJECT_ROOT")"
+chmod o+x "$PARENT_DIR"
+echo "✅  Set o+x for: $PARENT_DIR"
+
+# Nếu PARENT_DIR là /home/ubuntu, cấp thêm cho /home (optional nhưng an toàn)
+if [[ "$PARENT_DIR" == /home/* ]]; then
+    chmod o+x /home 2>/dev/null || true
+    echo "✅  Set o+x for: /home"
+fi
+
+echo "✅  All traversal permissions configured."
 echo ""
 
 # ==========================================
