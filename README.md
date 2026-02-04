@@ -199,15 +199,6 @@ chmod +x setup.sh
 
 **Best for:** Containerization, isolation, modern DevOps practices, easy scaling
 
-**Prerequisites:**
-- Build Docker image locally (Windows/Mac):
-  ```powershell
-  cd phase1\app\backend
-  mvn clean package -DskipTests
-  docker build -t your-dockerhub-username/notes-backend:v1 .
-  docker push your-dockerhub-username/notes-backend:v1
-  ```
-
 **On Server:**
 ```bash
 # Navigate to Phase 3 directory
@@ -216,14 +207,35 @@ cd phase3
 # Make script executable
 chmod +x setup.sh
 
-# Run setup with sudo (required for Docker commands)
-sudo ./setup.sh
+# Run setup WITHOUT sudo (Script handles permissions automatically)
+./setup.sh
+```
+
+**Important:**
+- ⚠️ **DO NOT run with sudo.** Running with sudo will cause file permission issues.
+- The script will prompt for your Docker Hub credentials and Database password.
+- **After installation:** You must **Log out and Log back in** (ssh exit & reconnect) for Docker permissions to take effect for your user.
+
+**After script completes, reconnect to server:**
+```bash
+# Exit current SSH session
+exit
+
+# Reconnect to server
+ssh user@your-server-ip
+
+# Verify Docker permissions (should see 'docker' in groups)
+groups
+
+# Now you can run Docker commands without sudo
+cd phase3
+docker compose ps
 ```
 
 **What happens:**
 - ✅ Stops Phase 2 services if running (auto-cleanup)
 - ✅ Installs: Docker, Docker Compose, Nginx
-- ✅ Prompts for: Docker Hub username, image tag, database password
+- ✅ Adds current user to docker group (no sudo needed for docker commands)
 - ✅ Pulls Docker image from Docker Hub
 - ✅ Starts containers: Backend + PostgreSQL (with docker-compose)
 - ✅ Configures Nginx to serve uploads from phase3/uploads/
@@ -233,13 +245,17 @@ sudo ./setup.sh
 
 **Architecture:** Backend and PostgreSQL run in Docker containers, Nginx on host serves static files and proxies to container
 
-**Useful Commands:**
+**Useful Commands (Phase 3):**
+*(Note: If you get "permission denied", log out and log back in first)*
+
 ```bash
-sudo docker compose ps              # Check container status
-sudo docker compose logs -f app     # View backend logs
-sudo docker compose logs -f db      # View database logs
-sudo docker compose restart         # Restart all containers
-sudo docker compose down            # Stop all containers
+cd phase3
+docker compose ps             # Check container status
+docker compose logs -f app    # View backend logs
+docker compose logs -f db     # View database logs
+docker compose restart        # Restart all containers
+docker compose down           # Stop all containers
+docker volume ls              # List database volumes
 ```
 
 ---
@@ -266,7 +282,7 @@ sudo systemctl restart nginx
 **Applies to both Phase 1 and Phase 3 deployments.**
 
 ```bash
-# Run Certbot to get SSL certificate
+# Run Certbot to get SSL certificate (Sudo is required here)
 sudo certbot --nginx
 
 # Follow prompts:
@@ -350,40 +366,9 @@ sudo systemctl status backend
 curl http://localhost:8080/api/notes
 ```
 
-### CORS Configuration
-
-If using custom domain, update allowed origins:
-
-**File:** `phase1/app/backend/src/main/java/com/noteapp/config/WebConfig.java`
-
-```java
-.allowedOrigins(
-    "http://localhost:3000",           // Development
-    "https://your-domain.com",         // Production
-    "https://www.your-domain.com",     // www subdomain
-    "http://your-domain.com"           // HTTP fallback
-)
-```
-
-Then rebuild and restart:
-```bash
-cd ~/Devops_Midterm/phase1/app/backend
-mvn clean package -DskipTests
-sudo systemctl restart backend
-```
-
 ---
 
 ## 🔧 Troubleshooting
-
-### Issue: 403 Forbidden (CORS Error)
-
-**Symptom:** Browser console shows "Invalid CORS request"
-
-**Solution:**
-1. Add your domain to `WebConfig.java` allowed origins
-2. Rebuild backend: `mvn clean package -DskipTests`
-3. Restart service: `sudo systemctl restart backend`
 
 ### Issue: Backend not starting
 

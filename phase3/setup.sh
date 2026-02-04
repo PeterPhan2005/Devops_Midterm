@@ -363,30 +363,16 @@ fi
 
 echo ""
 echo "=========================================="
-echo "  DEPLOYMENT COMPLETED!"
+echo "  ✅  DEPLOYMENT COMPLETED!"
 echo "=========================================="
 echo ""
-echo "📋 Useful Commands:"
-echo "  View logs:           sudo docker compose logs -f"
-echo "  View app logs:       sudo docker compose logs -f app"
-echo "  View db logs:        sudo docker compose logs -f db"
-echo "  View frontend logs:  sudo docker compose logs -f frontend"
-echo "  Stop containers:     sudo docker compose down"
-echo "  Restart containers:  sudo docker compose restart"
-echo "  Check status:        sudo docker compose ps"
-echo ""
-echo "🌐 Application URLs:"
-echo "  Backend API:         http://localhost:8080/api/notes"
-echo "  Frontend:            http://localhost:3000"
-echo "  Uploads:             http://localhost:8080/uploads/"
 
 # Check if domain is configured
 if [ -f "$NGINX_CONFIG" ]; then
     DOMAIN=$(grep -oP 'server_name \K[^;]+' "$NGINX_CONFIG" | head -1 | xargs)
     if [ ! -z "$DOMAIN" ] && [ "$DOMAIN" != "_" ]; then
-        echo "  Public Domain:       https://$DOMAIN"
+        echo "🌐 Access your app at: https://$DOMAIN"
     else
-        echo ""
         echo "📌 NEXT STEPS: Configure Domain & SSL (Optional)"
         echo "=========================================="
         echo ""
@@ -410,4 +396,5 @@ if [ -f "$NGINX_CONFIG" ]; then
 fi
 
 echo ""
-echo "✅  Phase 3 deployment completed successfully!"
+echo "🌐 Access your app at: http://$(curl -s ifconfig.me)"
+
