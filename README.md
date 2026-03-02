@@ -392,34 +392,7 @@ sudo nginx -t && sudo systemctl restart nginx
 
 ---
 
-## 📞 Support
-
-**Documentation:**
-- Setup guide: [phase1/scripts/setup.sh](phase1/scripts/setup.sh)
-- Domain setup: [DOMAIN_SETUP.md](DOMAIN_SETUP.md)
-- Checklist: [PRE_DEPLOYMENT_CHECKLIST.md](PRE_DEPLOYMENT_CHECKLIST.md)
-
-**Useful Commands:**
-```bash
-# View all services
-systemctl list-units --type=service
-
-# Check open ports
-sudo netstat -tuln | grep LISTEN
-
-# Test database connection
-PGPASSWORD=your_password psql -U postgres -h localhost -d notes_app_db -c "\dt"
-
-# Check Java version
-java -version
-
-# Check Nginx config syntax
-sudo nginx -t
-```
-
----
-
-## 📄 License
+##  License
 
 DevOps Midterm Project - Educational Use
 
