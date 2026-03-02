@@ -343,29 +343,6 @@ sudo tail -f /var/log/nginx/error.log
 - Systemd service: `/etc/systemd/system/backend.service`
 - Environment vars: `~/Devops_Midterm/phase1/scripts/.env`
 
-### Updating Application
-
-```bash
-# Pull latest code
-cd ~/Devops_Midterm
-git pull origin feature/automation-script
-
-# Rebuild backend
-cd phase1/app/backend
-mvn clean package -DskipTests
-
-# Rebuild frontend
-cd ../frontend
-npm run build
-
-# Restart backend service
-sudo systemctl restart backend
-
-# Verify
-sudo systemctl status backend
-curl http://localhost:8080/api/notes
-```
-
 ---
 
 ## 🔧 Troubleshooting
@@ -386,17 +363,6 @@ PGPASSWORD=your_password psql -U postgres -d notes_app_db -c "SELECT 1;"
 
 # 3. JAR file missing
 ls -lh ~/Devops_Midterm/phase1/app/backend/target/*.jar
-```
-
-### Issue: Nginx 403 Permission Denied
-
-```bash
-# Fix directory permissions
-sudo chmod 755 /home/$USER
-sudo chmod -R 755 ~/Devops_Midterm/phase1/app/frontend/build
-
-# Restart Nginx
-sudo systemctl restart nginx
 ```
 
 ### Issue: Certbot failed
