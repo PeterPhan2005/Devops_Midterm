@@ -19,24 +19,27 @@ Full-stack Notes Application with CRUD operations and file attachments:
 
 **Features:**
 - ✅ Create, read, update, delete notes
-- ✅ File upload/download (stored in PostgreSQL BYTEA)
+- ✅ File upload/download (stored in filesystem)
+  - **Phase 2:** `phase1/app/backend/uploads/`
+  - **Phase 3:** `phase3/uploads/`
 - ✅ **Production deployment with one command**
 - ✅ **Nginx reverse proxy** (frontend + API)
-- ✅ **Systemd service** (auto-restart backend)
+- ✅ **Systemd service** (Phase 2: auto-restart backend)
+- ✅ **Docker containers** (Phase 3: full containerization)
 - ✅ **SSL/HTTPS** (Let's Encrypt Certbot)
 - ✅ **Secure configuration** (no hardcoded credentials)
 
 **Technologies:**
 - Backend: Spring Boot 3.2.1 + Java 21 + PostgreSQL
 - Frontend: React 18 + Axios
-- Infrastructure: Nginx + Systemd + Certbot
-- Deployment: Automated bash script
+- Infrastructure: Nginx + Systemd (Phase 2) / Docker (Phase 3)
+- Deployment: Automated bash scripts
 
 ---
 
 ## 🏗️ Architecture
 
-### Production Stack
+### Phase 2: Traditional Deployment
 
 ```
                     Internet
@@ -72,17 +75,93 @@ Full-stack Notes Application with CRUD operations and file attachments:
                └───►│   PostgreSQL Database    │
                     │      (Port 5432)         │
                     │  - Notes table           │
-                    │  - File data (BYTEA)     │
+                    │  - Metadata only         │
                     └──────────────────────────┘
+
+Files: phase1/app/backend/uploads/ (served by Nginx)
 ```
 
-### Request Flow
-
+**Request Flow:**
 1. **Browser → Nginx (HTTPS):** User visits `https://domain.com`
 2. **Nginx → Frontend:** Serves React static files from `build/`
 3. **React → Nginx → Backend:** API calls `/api/*` proxied to `:8080/api/*`
 4. **Backend → Database:** Spring Boot queries PostgreSQL
 5. **Response:** Database → Backend → Nginx → Browser
+
+---
+
+### Phase 3: Docker Containerization
+
+```
+                    Internet
+                       │
+                       ▼
+              ┌──────────────────┐
+              │   Let's Encrypt  │ (SSL Certificates)
+              │     Certbot      │
+              └────────┬─────────┘
+                       │
+                       ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    Ubuntu Server (Host)                     │
+│                                                             │
+│  ┌───────────────────────────────────────────────────┐     │
+│  │         Nginx (Port 80/443) - Host Service        │     │
+│  │  ┌────────────────┐  ┌──────────────────────┐     │     │
+│  │  │ Reverse Proxy  │  │  Static File Server  │     │     │
+│  │  │ / → :3000      │  │  /uploads/ → folder  │     │     │
+│  │  │ /api/ → :8080  │  │                      │     │     │
+│  │  └────────────────┘  └──────────────────────┘     │     │
+│  └────────┬─────────────────────┬───────────────┬────┘     │
+│           │                     │               │          │
+│  ┌────────┴─────────────────────┴───────────────┴────┐     │
+│  │            Docker Engine (Containers)            │     │
+│  │                                                   │     │
+│  │  ┌─────────────────────────────────────────┐     │     │
+│  │  │      Docker Network (app-network)       │     │     │
+│  │  │                                         │     │     │
+│  │  │  ┌────────────────────────────────┐    │     │     │
+│  │  │  │  Frontend Container            │    │     │     │
+│  │  │  │  nginx:alpine (Port 3000)      │    │     │     │
+│  │  │  │  khangtrong/notes-frontend:v1  │    │     │     │
+│  │  │  └────────────────────────────────┘    │     │     │
+│  │  │                                         │     │     │
+│  │  │  ┌────────────────────────────────┐    │     │     │
+│  │  │  │  Backend Container             │    │     │     │
+│  │  │  │  eclipse-temurin:21-jdk        │    │     │     │
+│  │  │  │  (Port 8080)                   │    │     │     │
+│  │  │  │  khangtrong/notes-backend:v1   │◄───┼─────┼── Bind Mount
+│  │  │  └────────────┬───────────────────┘    │     │     │
+│  │  │               │                         │     │     │
+│  │  │               ▼                         │     │     │
+│  │  │  ┌────────────────────────────────┐    │     │     │
+│  │  │  │  Database Container            │    │     │     │
+│  │  │  │  postgres:15 (Port 5432)       │    │     │     │
+│  │  │  │  - Notes table                 │    │     │     │
+│  │  │  │  - Volume: db_data             │◄───┼─────┼── Docker Volume
+│  │  │  └────────────────────────────────┘    │     │     │
+│  │  └─────────────────────────────────────────┘     │     │
+│  └───────────────────────────────────────────────────┘     │
+│                                                             │
+│  Uploads: phase3/uploads/ (Bind Mount to Backend)          │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Request Flow:**
+1. **Browser → Host Nginx (HTTP):** User visits `http://server-ip`
+2. **Host Nginx → Frontend Container:** Proxy `/` to `localhost:3000`
+3. **Host Nginx → Backend Container:** Proxy `/api/` to `localhost:8080/api/`
+4. **Frontend → Backend:** Container-to-container via Docker network
+5. **Backend → Database Container:** JDBC connection via `db:5432` (service name)
+6. **File Uploads:** Backend writes to `/app/uploads` (bind mount from host)
+7. **Host Nginx → Uploads Folder:** Serves static files from `phase3/uploads/`
+
+**Key Differences from Phase 2:**
+- ✅ All services run in isolated Docker containers
+- ✅ Database data persists in Docker volume (`db_data`)
+- ✅ File uploads stored in filesystem (not database BYTEA)
+- ✅ Pre-built images from Docker Hub (no local compilation needed)
+- ✅ Easy rollback and scaling with container orchestration
 
 ---
 
@@ -108,7 +187,9 @@ Full-stack Notes Application with CRUD operations and file attachments:
 ### Database
 - **RDBMS:** PostgreSQL
 - **Schema Management:** JPA Auto DDL (hibernate.ddl-auto=update)
-- **File Storage:** BYTEA (Binary Large Object)
+- **File Storage:** Filesystem (uploads folder)
+  - **Phase 2:** `phase1/app/backend/uploads/`
+  - **Phase 3:** `phase3/uploads/` (bind mount to container)
 
 ### DevOps
 - **OS Support:** Linux, macOS
@@ -250,12 +331,20 @@ docker compose ps
 
 ```bash
 cd phase3
+
+# Container Management
 docker compose ps             # Check container status
 docker compose logs -f app    # View backend logs
 docker compose logs -f db     # View database logs
 docker compose restart        # Restart all containers
 docker compose down           # Stop all containers
+
+# Volume & Storage
 docker volume ls              # List database volumes
+docker compose exec app ls -l /app/uploads  # Check uploaded files (bind mount)
+
+# Database Query
+docker compose exec -T db psql -U postgres -d notes_app_db -c "SELECT * FROM notes;"  # View notes data
 ```
 
 ---
@@ -313,7 +402,9 @@ sudo certbot --nginx
 - ✅ Works on any Linux with any username
 - ✅ Dynamic user/path detection (no hardcoded paths)
 
-### Service Management
+### Service Management (Phase 2)
+
+**Traditional Deployment - Systemd Services:**
 
 ```bash
 # Check backend status
@@ -335,19 +426,81 @@ sudo systemctl restart nginx
 sudo tail -f /var/log/nginx/error.log
 ```
 
-### File Locations
+---
+
+### Container Management (Phase 3)
+
+**Docker Deployment - Container Operations:**
+
+```bash
+cd phase3
+
+# Check container status
+docker compose ps
+
+# Restart all containers
+docker compose restart
+
+# Restart specific container
+docker compose restart app      # Backend only
+docker compose restart db       # Database only
+docker compose restart frontend # Frontend only
+
+# View logs
+docker compose logs -f          # All containers
+docker compose logs -f app      # Backend logs
+docker compose logs -f db       # Database logs
+docker compose logs -f frontend # Frontend logs
+
+# Stop and remove containers
+docker compose down
+
+# Start containers
+docker compose up -d
+
+# Rebuild and restart
+docker compose up -d --build
+
+# Check Nginx status (Host)
+sudo systemctl status nginx
+sudo systemctl restart nginx
+```
+
+---
+
+### File Locations (Phase 2)
+
+**Traditional Deployment Paths:**
 
 - Backend JAR: `~/Devops_Midterm/phase1/app/backend/target/notes-backend-1.0.0.jar`
 - Frontend build: `~/Devops_Midterm/phase1/app/frontend/build/`
+- Uploads folder: `~/Devops_Midterm/phase1/app/backend/uploads/`
 - Nginx config: `/etc/nginx/sites-available/notes-app`
 - Systemd service: `/etc/systemd/system/backend.service`
 - Environment vars: `~/Devops_Midterm/phase1/scripts/.env`
 
 ---
 
+### File Locations (Phase 3)
+
+**Docker Deployment Paths:**
+
+- Docker Compose file: `~/Devops_Midterm/phase3/docker-compose.yml`
+- Environment vars: `~/Devops_Midterm/phase3/.env`
+- Uploads folder (host): `~/Devops_Midterm/phase3/uploads/`
+- Uploads in container: `/app/uploads` (bind mount)
+- Database volume: `db_data` (Docker managed)
+- Nginx config (host): `/etc/nginx/sites-available/notes-app`
+- Frontend image: `khangtrong/notes-frontend:v1`
+- Backend image: `khangtrong/notes-backend:v1`
+
+---
+
 ## 🔧 Troubleshooting
 
-### Issue: Backend not starting
+### Phase 2: Traditional Deployment Issues
+
+#### Issue: Backend not starting
 
 ```bash
 # Check logs
@@ -365,7 +518,7 @@ PGPASSWORD=your_password psql -U postgres -d notes_app_db -c "SELECT 1;"
 ls -lh ~/Devops_Midterm/phase1/app/backend/target/*.jar
 ```
 
-### Issue: Certbot failed
+#### Issue: Certbot failed
 
 ```bash
 # Check DNS
@@ -381,13 +534,130 @@ sudo systemctl status nginx
 sudo certbot certonly --nginx -d your-domain.com -d www.your-domain.com
 ```
 
-### Issue: Can't access via IP after Certbot
+#### Issue: Can't access via IP after Certbot
 
 After enabling HTTPS, Nginx may block IP access. To allow both:
 
 ```bash
 sudo sed -i "s/server_name your-domain.com www.your-domain.com;/server_name your-domain.com www.your-domain.com $(curl -s ifconfig.me);/g" /etc/nginx/sites-available/notes-app
 sudo nginx -t && sudo systemctl restart nginx
+```
+
+---
+
+### Phase 3: Docker Deployment Issues
+
+#### Issue: Containers won't start
+
+```bash
+# Check container status
+cd phase3
+docker compose ps
+
+# View logs to see error
+docker compose logs app
+docker compose logs db
+
+# Common fixes:
+# 1. Port conflicts
+sudo lsof -i :3000  # Frontend port
+sudo lsof -i :8080  # Backend port
+sudo lsof -i :5432  # Database port
+
+# 2. Force restart
+docker compose down
+docker compose up -d
+
+# 3. Check if images are pulled
+docker images | grep khangtrong
+```
+
+#### Issue: Permission denied / 403 Forbidden on /uploads/
+
+```bash
+# Check permissions
+ls -la phase3/uploads/
+
+# Fix permissions
+chmod -R 777 phase3/uploads/
+
+# Check parent directory permissions
+chmod o+x ~/Devops_Midterm
+chmod o+x ~/Devops_Midterm/phase3
+
+# Restart Nginx
+sudo systemctl restart nginx
+```
+
+#### Issue: Can't run docker commands (permission denied)
+
+```bash
+# Check if user is in docker group
+groups
+
+# If 'docker' not in list, log out and log back in
+exit
+ssh user@your-server-ip
+
+# If still fails, manually add user to docker group
+sudo usermod -aG docker $USER
+newgrp docker
+
+# Verify
+docker ps
+```
+
+#### Issue: Database connection failed
+
+```bash
+# Check if database container is running
+docker compose ps
+
+# Check database logs
+docker compose logs db
+
+# Test database connection from backend
+docker compose exec app nc -zv db 5432
+
+# Check if database is ready
+docker compose exec db pg_isready -U postgres
+
+# Restart database container
+docker compose restart db
+```
+
+#### Issue: Can't pull images from Docker Hub
+
+```bash
+# Check Docker Hub login
+docker login
+
+# Verify credentials
+docker pull khangtrong/notes-backend:v1
+docker pull khangtrong/notes-frontend:v1
+
+# If pull fails, check .env file
+cat phase3/.env
+# Ensure DOCKER_USERNAME=khangtrong and IMAGE_TAG=v1
+
+# Force pull
+docker compose pull --ignore-pull-failures
+```
+
+#### Issue: Volume persistence - data lost after restart
+
+```bash
+# Check if volume exists
+docker volume ls | grep db_data
+
+# Inspect volume
+docker volume inspect phase3_db_data
+
+# Verify volume is mounted
+docker compose exec db df -h | grep pgdata
+
+# If volume lost, check docker-compose.yml
+cat phase3/docker-compose.yml | grep -A 5 volumes
 ```
 
 ---
@@ -408,8 +678,13 @@ DevOps Midterm Project - Educational Use
   - Secure password handling
   - Automated .env creation
   - Template-based config files
+- **v4.0.0** - Docker Containerization (Phase 3)
+  - Full containerization with Docker Compose
+  - Pre-built images on Docker Hub
+  - Volume persistence for database and uploads
+  - Automated setup script with Phase 2 cleanup
 
 ---
 
-**Last Updated:** January 19, 2026  
+**Last Updated:** March 11, 2026  
 **Status:** ✅ Production Ready
