@@ -236,7 +236,7 @@ Files: phase1/app/backend/uploads/ (served by Nginx)
 ssh user@your-server-ip
 
 # Clone project
-git clone <your-repository-url>
+git clone https://github.com/PeterPhan2005/Devops_Midterm.git
 cd Devops_Midterm
 ```
 
